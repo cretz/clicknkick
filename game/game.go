@@ -8,21 +8,31 @@ import (
 )
 
 type Game struct {
-	field       *field
-	fieldDrawOp ebiten.DrawImageOptions
-	width       int
-	height      int
+	equip      sprites
+	field      *field
+	fieldScale ebiten.DrawImageOptions
+	ball       *ball
+	width      int
+	height     int
 }
 
 func New(width int, height int) (g *Game, err error) {
 	g = &Game{width: width, height: height}
+	// Load sprites
+	if g.equip, err = newSprites("sheet_charactersEquipment"); err != nil {
+		return nil, err
+	}
 	// Create field
 	if g.field, err = newField(21, 10); err != nil {
 		return nil, err
 	}
 	// Scale it
 	fieldWidth, fieldHeight := g.field.Size()
-	g.fieldDrawOp.GeoM.Scale(float64(width)/float64(fieldWidth), float64(height)/float64(fieldHeight))
+	g.fieldScale.GeoM.Scale(float64(width)/float64(fieldWidth), float64(height)/float64(fieldHeight))
+	// Create ball
+	if g.ball, err = newBall(g.equip); err != nil {
+		return nil, err
+	}
 	return
 }
 
@@ -43,7 +53,7 @@ func (g *Game) update(screen *ebiten.Image) error {
 }
 
 func (g *Game) draw(screen *ebiten.Image) error {
-	// Draw the field as scaled
-	screen.DrawImage(g.field.Image, &g.fieldDrawOp)
+	g.field.draw(screen, g)
+	g.ball.draw(screen, g)
 	return ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS: %0.2f", ebiten.CurrentTPS()))
 }

@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"path"
 	"runtime"
+
+	"github.com/hajimehoshi/ebiten"
 )
 
 func Load(name string) ([]byte, error) {
@@ -25,4 +27,12 @@ func LoadImage(name string) (image.Image, error) {
 	}
 	img, _, err := image.Decode(bytes.NewReader(byts))
 	return img, err
+}
+
+func LoadEbitenImage(name string) (*ebiten.Image, error) {
+	img, err := LoadImage(name)
+	if err != nil {
+		return nil, err
+	}
+	return ebiten.NewImageFromImage(img, ebiten.FilterDefault)
 }
