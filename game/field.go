@@ -2,6 +2,9 @@ package game
 
 import (
 	"image"
+	"image/color"
+
+	"github.com/hajimehoshi/ebiten/ebitenutil"
 
 	"github.com/cretz/clicknkick/game/resources"
 	"github.com/hajimehoshi/ebiten"
@@ -11,13 +14,14 @@ const fieldTileSize = 64
 
 type field struct {
 	*ebiten.Image
+	xTiles, yTiles int
 }
 
 func newField(xTiles, yTiles int) (*field, error) {
-	f := &field{}
+	f := &field{xTiles: xTiles, yTiles: yTiles}
 	f.Image, _ = ebiten.NewImage(xTiles*fieldTileSize, yTiles*fieldTileSize, ebiten.FilterDefault)
 	maxX, maxY := float64(xTiles), float64(yTiles)
-	centerX, centerY := maxX/2-0.5, maxY/2-0.5
+	centerX, centerY := f.centerTile()
 	// Load tiles (can allow resource to change)
 	tiles, err := resources.LoadEbitenImage("groundGrass_mownWide.png")
 	if err != nil {
@@ -111,4 +115,34 @@ func (f *field) drawTileImg(img *ebiten.Image, dx, dy float64) {
 
 func (f *field) draw(screen *ebiten.Image, g *Game) {
 	screen.DrawImage(f.Image, &g.fieldScale)
+	centerX, centerY := f.center(g)
+	ebitenutil.DrawLine(screen, centerX, centerY, centerX+5, centerY+5, color.Black)
+}
+
+func (f *field) fieldPos(tileX, tileY float64, g *Game) (x, y float64) {
+	return g.fieldScale.GeoM.Apply(tileX*fieldTileSize, tileY*fieldTileSize)
+}
+
+func (f *field) centerTile() (x, y float64) {
+	return float64(f.xTiles)/2 - 0.5, float64(f.yTiles)/2 - 0.5
+}
+
+func (f *field) center(g *Game) (x, y float64) {
+	cX, cY := f.centerTile()
+	return f.fieldPos(cX+.5, cY+.5, g)
+}
+
+func (f *field) goalLine(g *Game, left bool) (x, top, bottom float64) {
+	_, centerY := f.centerTile()
+	if left {
+		x, top = f.fieldPos(1.12, centerY-1, g)
+	} else {
+		x, top = f.fieldPos(float64(f.xTiles)-1.12, centerY-1, g)
+	}
+	_, bottom = f.fieldPos(0, centerY+1, g)
+	return
+}
+
+func (f *field) size(g *Game) (x, y float64) {
+	return f.fieldPos(float64(f.xTiles), float64(f.yTiles), g)
 }
