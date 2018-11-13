@@ -2,9 +2,6 @@ package game
 
 import (
 	"image"
-	"image/color"
-
-	"github.com/hajimehoshi/ebiten/ebitenutil"
 
 	"github.com/cretz/clicknkick/game/resources"
 	"github.com/hajimehoshi/ebiten"
@@ -115,8 +112,6 @@ func (f *field) drawTileImg(img *ebiten.Image, dx, dy float64) {
 
 func (f *field) draw(screen *ebiten.Image, g *Game) {
 	screen.DrawImage(f.Image, &g.fieldScale)
-	centerX, centerY := f.center(g)
-	ebitenutil.DrawLine(screen, centerX, centerY, centerX+5, centerY+5, color.Black)
 }
 
 func (f *field) fieldPos(tileX, tileY float64, g *Game) (x, y float64) {

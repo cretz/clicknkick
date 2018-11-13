@@ -7,3 +7,7 @@ From https://kenney.nl/assets/sports-pack:
 * groundGrass_mownWide.png
 * sheet_charactersEquipment.png
 * sheet_charactersEquipment.xml
+
+From https://kenney.nl/assets/crosshair-pack
+
+* crosshair131.png
