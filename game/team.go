@@ -140,3 +140,16 @@ func (t *team) advanceTurn(g *Game) {
 		p.advanceTurn(g)
 	}
 }
+
+func (t *team) slowestPlayerWithinBallRange(g *Game) (playerIndex int, speedFactor float64) {
+	playerIndex = -1
+	for i, p := range t.players {
+		if x, y := p.currPos(g); math.Abs(distance(x, y, g.ball.x, g.ball.y)) <= maxGainPossessionDistance {
+			if speed := p.speedFactor(); playerIndex == -1 || speedFactor > speed {
+				playerIndex = i
+				speedFactor = speed
+			}
+		}
+	}
+	return
+}

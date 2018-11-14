@@ -73,29 +73,17 @@ func (p *player) draw(screen *ebiten.Image, g *Game) {
 	if p.lastX >= 0 {
 		drawLineDot(screen, p.lastX, p.lastY, p.x, p.y, &playerLastLineOp)
 	}
-	currX, currY := p.x, p.y
 	prevX, prevY := p.x, p.y
-	// Default dir is always to ball
-	dir := radToDeg(math.Atan2(g.ball.x-currX, currY-g.ball.y))
 	for i, nextX := range p.nextX {
 		nextY := p.nextY[i]
 		drawLineDot(screen, prevX, prevY, nextX, nextY, &playerNextLineOp)
 		prevX, prevY = nextX, nextY
-		// The first one overrides the direction
-		if i == 0 {
-			dir = radToDeg(math.Atan2(nextX-p.x, p.y-nextY))
-			// Also, if animating, we need to calc the diff between start and this next one
-			if g.runningTurnPercent > 0 {
-				currX += (nextX - currX) / 100 * g.runningTurnPercent
-				currY += (nextY - currY) / 100 * g.runningTurnPercent
-			}
-		}
 	}
 	// Draw player
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(-p.w/2, -p.h/2)
-	op.GeoM.Rotate(degToRad(dir - 90))
-	op.GeoM.Translate(currX, currY)
+	op.GeoM.Rotate(degToRad(p.currDir(g) - 90))
+	op.GeoM.Translate(p.currPos(g))
 	screen.DrawImage(p.body, op)
 }
 
@@ -115,4 +103,36 @@ func (p *player) advanceTurn(g *Game) {
 	} else {
 		p.lastX, p.lastY = -1, -1
 	}
+}
+
+func (p *player) speedFactor() float64 {
+	// Just the distance between current and next distance for now
+	if len(p.nextX) == 0 {
+		return 0
+	}
+	return math.Abs(distance(p.x, p.y, p.nextX[0], p.nextY[0]))
+}
+
+func (p *player) currPos(g *Game) (x, y float64) {
+	if len(p.nextX) == 0 || g.runningTurnPercent == 0 {
+		return p.x, p.y
+	}
+	nextX, nextY := p.nextX[0], p.nextY[0]
+	return p.x + ((nextX - p.x) / 100 * g.runningTurnPercent), p.y + ((nextY - p.y) / 100 * g.runningTurnPercent)
+}
+
+// In degrees
+func (p *player) currDir(g *Game) float64 {
+	// Face the ball or the next dir
+	if len(p.nextX) == 0 {
+		return radToDeg(math.Atan2(g.ball.x-p.x, p.y-g.ball.y))
+	}
+	return radToDeg(math.Atan2(p.nextX[0]-p.x, p.y-p.nextY[0]))
+}
+
+func (p *player) putBallAtFeet(g *Game) {
+	dirRad := degToRad(p.currDir(g))
+	currX, currY := p.currPos(g)
+	g.ball.x = currX + p.w*math.Cos(dirRad)
+	g.ball.y = currY + p.w*math.Sin(dirRad)
 }

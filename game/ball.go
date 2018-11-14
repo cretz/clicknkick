@@ -8,7 +8,7 @@ import (
 
 type ball struct {
 	*ebiten.Image
-	// This is left and top
+	op   ebiten.DrawImageOptions
 	x, y float64
 
 	frameCount int
@@ -26,23 +26,18 @@ func newBall(equip sprites) (*ball, error) {
 const ballRotateFrameCount = 10
 
 func (b *ball) draw(screen *ebiten.Image, g *Game) {
-	op := &ebiten.DrawImageOptions{}
+	w, h := b.Image.Size()
+	b.op.GeoM.Reset()
+	b.op.GeoM.Translate(-float64(w)/2, -float64(h)/2)
 
 	b.frameCount++
 	if b.frameCount < ballRotateFrameCount && b.moving {
-		op.GeoM.Rotate(degToRad(90))
-		w, _ := b.Image.Size()
-		op.GeoM.Translate(float64(w), 0)
+		b.op.GeoM.Rotate(degToRad(90))
 	} else if b.frameCount > ballRotateFrameCount*2 {
 		b.frameCount = 0
 	}
 
-	op.GeoM.Concat(g.fieldScale.GeoM)
-	op.GeoM.Translate(b.x, b.y)
-	screen.DrawImage(b.Image, op)
-}
-
-func (b *ball) setCenter(x, y float64) {
-	w, h := b.Image.Size()
-	b.x, b.y = x-(float64(w)/2), y-(float64(h)/2)
+	b.op.GeoM.Concat(g.fieldScale.GeoM)
+	b.op.GeoM.Translate(b.x, b.y)
+	screen.DrawImage(b.Image, &b.op)
 }
