@@ -5,7 +5,6 @@ import (
 
 	"github.com/hajimehoshi/ebiten/inpututil"
 
-	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/font"
 
 	"github.com/hajimehoshi/ebiten/text"
@@ -20,18 +19,12 @@ type title struct {
 
 type titleOption int
 
-const titleOptionNone titleOption = -1
 const (
-	titleOptionPlay titleOption = iota
+	titleOptionNone titleOption = iota - 1
+	titleOptionPlay
 	titleOptionPractice
 	titleOptionExit
 )
-
-var titleFontFace font.Face
-
-func init() {
-	titleFontFace = truetype.NewFace(simpleFont, &truetype.Options{Size: 70})
-}
 
 func newTitle(width, height int) *title {
 	t := &title{options: newOptionSet(width, height, 300, 60, 300, 10, 40, "Play", "Practice", "Exit")}

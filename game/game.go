@@ -19,13 +19,15 @@ type Game struct {
 	fieldScale    ebiten.DrawImageOptions
 	ball          *ball
 	title         *title
+	controls      *controls
 	team1         *team
 	team2         *team
 	selectReticle *selectReticle
 
-	iAmTeam1 bool
-	practice bool
-	status   gameStatus
+	iAmTeam1           bool
+	practice           bool
+	status             gameStatus
+	runningTurnPercent float64
 }
 
 type gameStatus int
@@ -82,8 +84,9 @@ func New(width int, height int) (g *Game, err error) {
 	if g.selectReticle, err = newSelectReticle(); err != nil {
 		return nil, err
 	}
-	// Create title
+	// Create title and controls
 	g.title = newTitle(width, height)
+	g.controls = newControls()
 	return
 }
 
@@ -102,6 +105,8 @@ func (g *Game) tick(screen *ebiten.Image) (err error) {
 	return
 }
 
+const secondsOfAnimation = 2
+
 func (g *Game) update(screen *ebiten.Image) error {
 	switch g.status {
 	case gameStatusTitle:
@@ -116,6 +121,21 @@ func (g *Game) update(screen *ebiten.Image) error {
 			return errorQuit
 		}
 	case gameStatusPlay:
+		switch g.controls.update(g) {
+		case controlOptionTurnComplete:
+			// Start the animation
+			g.myTeam().selectedPlayer = -1
+			g.myTeam().hoveredPlayer = -1
+			g.runningTurnPercent = 0.01
+		}
+		if g.runningTurnPercent >= 100 {
+			g.runningTurnPercent = 0
+			g.team1.advanceTurn(g)
+			g.team2.advanceTurn(g)
+		} else if g.runningTurnPercent > 0 {
+			totalTicksInAnimation := secondsOfAnimation * ebiten.CurrentTPS()
+			g.runningTurnPercent += 100 / totalTicksInAnimation
+		}
 		g.team1.update(g, g.iAmTeam1)
 		g.team2.update(g, !g.iAmTeam1)
 	}
@@ -130,12 +150,14 @@ func (g *Game) draw(screen *ebiten.Image) error {
 	if !g.practice {
 		g.team2.draw(screen, g, !g.iAmTeam1)
 	}
-	// Draw the title screen if applicable
+	// Draw the controls if applicable
 	switch g.status {
 	case gameStatusTitle:
 		g.title.draw(screen, g)
 	case gameStatusPlay:
+		g.controls.draw(screen, g)
 	}
+	ebitenutil.DebugPrint(screen, fmt.Sprintf("\nRun Pct: %0.2f", g.runningTurnPercent))
 	return ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS: %0.2f", ebiten.CurrentTPS()))
 }
 

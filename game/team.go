@@ -1,11 +1,8 @@
 package game
 
 import (
-	"image/color"
 	"math"
 	"math/rand"
-
-	"github.com/hajimehoshi/ebiten/ebitenutil"
 
 	"github.com/hajimehoshi/ebiten"
 	"github.com/hajimehoshi/ebiten/inpututil"
@@ -34,12 +31,6 @@ func newTeam(g *Game, color playerColor, left bool) (t *team, err error) {
 		if t.players[i], err = newPlayer(g.equip, color, rand.Intn(5)+1, i == 0); err != nil {
 			break
 		}
-		// Face center
-		if left {
-			t.players[i].dir = 90
-		} else {
-			t.players[i].dir = 270
-		}
 	}
 	// Now let's place them all, 4-4-2 by default
 	goalX, _, _ := g.field.goalLine(g, left)
@@ -63,7 +54,8 @@ func newTeam(g *Game, color playerColor, left bool) (t *team, err error) {
 }
 
 func (t *team) update(g *Game, myTeam bool) {
-	if !myTeam {
+	// Not my team or running anim means do nothing here
+	if !myTeam || g.runningTurnPercent > 0 {
 		return
 	}
 	// If there is a selected player, right click unselects, otherwise can click on hovered player
@@ -101,7 +93,7 @@ func (t *team) draw(screen *ebiten.Image, g *Game, myTeam bool) {
 			p, sourceX, sourceY, destX, destY := t.selectedPlayerPendingPoint(g)
 			g.selectReticle.draw(screen, g, p.x, p.y, true)
 			if sourceX >= 0 {
-				ebitenutil.DrawLine(screen, sourceX, sourceY, destX, destY, color.Black)
+				drawLineDot(screen, sourceX, sourceY, destX, destY, &playerPendingLineOp)
 			}
 		} else if t.hoveredPlayer >= 0 {
 			p := t.players[t.hoveredPlayer]
@@ -141,4 +133,10 @@ func (t *team) playerAtCursor() (playerIndex int, fromCenter float64) {
 		}
 	}
 	return
+}
+
+func (t *team) advanceTurn(g *Game) {
+	for _, p := range t.players {
+		p.advanceTurn(g)
+	}
 }
