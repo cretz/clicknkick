@@ -14,15 +14,14 @@ type Game struct {
 	height        int
 	maxPlayerMove float64
 
-	equip         sprites
-	field         *field
-	fieldScale    ebiten.DrawImageOptions
-	ball          *ball
-	title         *title
-	controls      *controls
-	team1         *team
-	team2         *team
-	selectReticle *selectReticle
+	equip      sprites
+	field      *field
+	fieldScale ebiten.DrawImageOptions
+	ball       *ball
+	title      *title
+	controls   *controls
+	team1      *team
+	team2      *team
 
 	iAmTeam1           bool
 	practice           bool
@@ -31,6 +30,10 @@ type Game struct {
 
 	ballPossessionPlayerIndex int
 	ballPossessionTeam1       bool
+	ballPossessionKickerIndex int
+	ballPossessionKickerTeam1 bool
+
+	selectReticleOp ebiten.DrawImageOptions
 }
 
 type gameStatus int
@@ -46,7 +49,13 @@ var errorQuit = errors.New("Quit")
 const debug = true
 
 func New(width int, height int) (g *Game, err error) {
-	g = &Game{width: width, height: height, status: gameStatusTitle, ballPossessionPlayerIndex: -1}
+	g = &Game{
+		width:                     width,
+		height:                    height,
+		status:                    gameStatusTitle,
+		ballPossessionPlayerIndex: -1,
+		ballPossessionKickerIndex: -1,
+	}
 	if debug {
 		g.status = gameStatusPlay
 		g.iAmTeam1 = true
@@ -83,10 +92,6 @@ func New(width int, height int) (g *Game, err error) {
 	if g.team2, err = newTeam(g, team2Color, false); err != nil {
 		return nil, err
 	}
-	// Create the reticle for selecting
-	if g.selectReticle, err = newSelectReticle(); err != nil {
-		return nil, err
-	}
 	// Create title and controls
 	g.title = newTitle(width, height)
 	g.controls = newControls()
@@ -111,7 +116,7 @@ func (g *Game) tick(screen *ebiten.Image) (err error) {
 const secondsOfAnimation = 2
 
 // Have to be within this distance to obtain possession
-const maxGainPossessionDistance = 20
+const maxGainPossessionDistance = 40
 
 func (g *Game) update(screen *ebiten.Image) error {
 	switch g.status {
@@ -133,6 +138,13 @@ func (g *Game) update(screen *ebiten.Image) error {
 			g.myTeam().selectedPlayer = -1
 			g.myTeam().hoveredPlayer = -1
 			g.runningTurnPercent = 0.01
+			// If there is a next ball position, it's being kicked so remove possession
+			if g.ball.nextX >= 0 {
+				g.ballPossessionKickerIndex, g.ballPossessionKickerTeam1 = g.ballPossessionPlayerIndex, g.ballPossessionTeam1
+				g.ballPossessionPlayerIndex = -1
+			} else {
+				g.ballPossessionKickerIndex = -1
+			}
 		}
 		if g.runningTurnPercent >= 100 {
 			g.runningTurnPercent = 0
@@ -142,6 +154,9 @@ func (g *Game) update(screen *ebiten.Image) error {
 			if p := g.ballPossessionPlayer(); p != nil && len(p.nextX) > 0 {
 				p.putBallAtFeet(g)
 			}
+			g.ball.advanceTurn(g)
+			// Remove previous kicker
+			g.ballPossessionKickerIndex = -1
 		} else if g.runningTurnPercent > 0 {
 			totalTicksInAnimation := secondsOfAnimation * ebiten.CurrentTPS()
 			g.runningTurnPercent += 100 / totalTicksInAnimation
@@ -152,7 +167,7 @@ func (g *Game) update(screen *ebiten.Image) error {
 		if g.runningTurnPercent > 0 {
 			g.updatePossession()
 			g.ball.moving = true
-			// If there is a possessing player, we need to put the ball at his feet
+			// If there is a possessing and moving player, we need to put the ball at his feet
 			if p := g.ballPossessionPlayer(); p != nil && len(p.nextX) > 0 {
 				p.putBallAtFeet(g)
 			}
@@ -190,11 +205,16 @@ func (g *Game) myTeam() *team {
 }
 
 func (g *Game) updatePossession() {
+	// If they kicked it, they can't repossess this turn
+	team1Exclude, team2Exclude := g.ballPossessionKickerIndex, -1
+	if !g.ballPossessionKickerTeam1 {
+		team1Exclude, team2Exclude = -1, g.ballPossessionKickerIndex
+	}
 	// Find any player within ball range that is moving the slowest
-	newSlowest, speedFactor := g.team1.slowestPlayerWithinBallRange(g)
+	newSlowest, speedFactor := g.team1.slowestPlayerWithinBallRange(g, team1Exclude)
 	team1 := true
 	if !g.practice {
-		team2Player, team2SpeedFactor := g.team2.slowestPlayerWithinBallRange(g)
+		team2Player, team2SpeedFactor := g.team2.slowestPlayerWithinBallRange(g, team2Exclude)
 		if newSlowest == -1 || (team2Player != -1 && team2SpeedFactor < speedFactor) {
 			newSlowest, speedFactor = team2Player, team2SpeedFactor
 			team1 = false
@@ -214,6 +234,10 @@ func (g *Game) updatePossession() {
 	fmt.Printf("Changed ball possessor to %v (team1? %v)\n", newSlowest, team1)
 	// New slowest takes over
 	g.ballPossessionPlayerIndex, g.ballPossessionTeam1 = newSlowest, team1
+	g.ballPossessionKickerIndex = -1
+	// Any previous or next movement for the ball is now moot and move ball to player
+	g.ball.lastX, g.ball.lastY, g.ball.nextX, g.ball.nextY = -1, -1, -1, -1
+	g.ballPossessionPlayer().putBallAtFeet(g)
 }
 
 func (g *Game) ballPossessionPlayer() *player {

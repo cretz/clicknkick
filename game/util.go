@@ -28,18 +28,8 @@ func distance(x1, y1, x2, y2 float64) float64 {
 	return math.Sqrt(math.Pow(x2-x1, 2) + math.Pow(y2-y1, 2))
 }
 
-var arrowLineImage *ebiten.Image
-var circleImage *ebiten.Image
-
-func init() {
-	var err error
-	if arrowLineImage, err = resources.LoadEbitenImage("arrow-line.png"); err != nil {
-		panic(err)
-	}
-	if circleImage, err = resources.LoadEbitenImage("circle.png"); err != nil {
-		panic(err)
-	}
-}
+var arrowLineImage = resources.MustLoadEbitenImage("arrow-line.png")
+var circleImage = resources.MustLoadEbitenImage("circle.png")
 
 func drawLineDot(dst *ebiten.Image, x1, y1, x2, y2 float64, op *ebiten.DrawImageOptions) {
 	op.GeoM.Reset()
@@ -55,4 +45,26 @@ func drawLineDot(dst *ebiten.Image, x1, y1, x2, y2 float64, op *ebiten.DrawImage
 	op.GeoM.Scale(0.5, 0.5)
 	op.GeoM.Translate(x2-float64(w)/4, y2-float64(h)/4)
 	dst.DrawImage(circleImage, op)
+}
+
+var selectReticleImage = resources.MustLoadEbitenImage("crosshair131.png")
+var selectReticleTickCounter = 0.0
+
+const selectReticleTicksPerDegreeChange = 10
+const selectReticleDegreeChange = 10
+
+func drawSelectReticle(dst *ebiten.Image, x, y, scale float64, op *ebiten.DrawImageOptions) {
+	selectReticleTickCounter++
+	rotDeg := (selectReticleTickCounter / selectReticleTicksPerDegreeChange) * selectReticleDegreeChange
+	if rotDeg >= 360 {
+		rotDeg = 0
+		selectReticleTickCounter = 0
+	}
+	op.GeoM.Reset()
+	w, h := selectReticleImage.Size()
+	op.GeoM.Translate(-float64(w)/2, -float64(h)/2)
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Rotate(degToRad(rotDeg))
+	op.GeoM.Translate(x, y)
+	dst.DrawImage(selectReticleImage, op)
 }

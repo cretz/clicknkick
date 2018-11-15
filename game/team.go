@@ -58,20 +58,37 @@ func (t *team) update(g *Game, myTeam bool) {
 	if !myTeam || g.runningTurnPercent > 0 {
 		return
 	}
-	// If there is a selected player, right click unselects, otherwise can click on hovered player
-	if t.selectedPlayer >= 0 && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) {
+	// If there is a selected player/ball, right click unselects, otherwise can click on hovered player
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) {
 		t.selectedPlayer = -1
+		g.ball.selected = false
+		g.ball.hovered = false
 	}
-	if t.selectedPlayer == -1 {
-		t.hoveredPlayer, _ = t.playerAtCursor()
-		if t.hoveredPlayer >= 0 && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-			t.selectedPlayer = t.hoveredPlayer
-			t.selectedPlayerNewChain = true
+	if t.selectedPlayer == -1 && !g.ball.selected {
+		// When there is no player selected, the ball can be hovered/selected when it's my team possessing
+		g.ball.hovered = g.ballPossessionPlayerIndex >= 0 && g.iAmTeam1 == g.ballPossessionTeam1 && g.ball.cursorOver()
+		if g.ball.hovered {
 			t.hoveredPlayer = -1
+			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+				g.ball.selected = true
+				// Reset next coords too
+				g.ball.nextX, g.ball.nextY = -1, -1
+			}
+		} else {
+			t.hoveredPlayer, _ = t.playerAtCursor()
+			if t.hoveredPlayer >= 0 && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+				t.selectedPlayer = t.hoveredPlayer
+				t.selectedPlayerNewChain = true
+				t.hoveredPlayer = -1
+			}
 		}
 	} else if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		// When mouse is clicked in screen, it's a new point
-		if p, _, _, destX, destY := t.selectedPlayerPendingPoint(g); destX >= 0 {
+		// When mouse is clicked in screen, it's a new point for ball or player
+		if g.ball.selected {
+			// TODO: new point and remove selection
+			g.ball.selected = false
+			_, _, g.ball.nextX, g.ball.nextY = g.ball.ballPendingPoint(g)
+		} else if p, _, _, destX, destY := t.selectedPlayerPendingPoint(g); destX >= 0 {
 			if t.selectedPlayerNewChain {
 				t.selectedPlayerNewChain = false
 				p.nextX = nil
@@ -88,16 +105,26 @@ func (t *team) draw(screen *ebiten.Image, g *Game, myTeam bool) {
 		player.draw(screen, g)
 	}
 	if myTeam {
-		if t.selectedPlayer >= 0 {
+		if g.ball.selected {
+			sourceX, sourceY, destX, destY := g.ball.ballPendingPoint(g)
+			if sourceX >= 0 {
+				drawLineDot(screen, sourceX, sourceY, destX, destY, &ballPendingLineOp)
+			}
+		} else if t.selectedPlayer >= 0 {
 			// If the player is selected, mouse cursor is where they can move (limited by max)
 			p, sourceX, sourceY, destX, destY := t.selectedPlayerPendingPoint(g)
-			g.selectReticle.draw(screen, g, p.x, p.y, true)
+			g.selectReticleOp.ColorM.Reset()
+			g.selectReticleOp.ColorM.Scale(1.7, 1.7, 0.5, 1)
+			drawSelectReticle(screen, p.x, p.y, 1, &g.selectReticleOp)
+			// g.selectReticle.draw(screen, g, p.x, p.y, true)
 			if sourceX >= 0 {
 				drawLineDot(screen, sourceX, sourceY, destX, destY, &playerPendingLineOp)
 			}
 		} else if t.hoveredPlayer >= 0 {
 			p := t.players[t.hoveredPlayer]
-			g.selectReticle.draw(screen, g, p.x, p.y, false)
+			g.selectReticleOp.ColorM.Reset()
+			drawSelectReticle(screen, p.x, p.y, 1, &g.selectReticleOp)
+			// g.selectReticle.draw(screen, g, p.x, p.y, false)
 		}
 	}
 }
@@ -141,10 +168,14 @@ func (t *team) advanceTurn(g *Game) {
 	}
 }
 
-func (t *team) slowestPlayerWithinBallRange(g *Game) (playerIndex int, speedFactor float64) {
+func (t *team) slowestPlayerWithinBallRange(g *Game, excludePlayer int) (playerIndex int, speedFactor float64) {
 	playerIndex = -1
+	ballX, ballY := g.ball.currPos(g)
 	for i, p := range t.players {
-		if x, y := p.currPos(g); math.Abs(distance(x, y, g.ball.x, g.ball.y)) <= maxGainPossessionDistance {
+		if i == excludePlayer {
+			continue
+		}
+		if x, y := p.currPos(g); math.Abs(distance(x, y, ballX, ballY)) <= maxGainPossessionDistance {
 			if speed := p.speedFactor(); playerIndex == -1 || speedFactor > speed {
 				playerIndex = i
 				speedFactor = speed

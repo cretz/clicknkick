@@ -36,3 +36,11 @@ func LoadEbitenImage(name string) (*ebiten.Image, error) {
 	}
 	return ebiten.NewImageFromImage(img, ebiten.FilterDefault)
 }
+
+func MustLoadEbitenImage(name string) *ebiten.Image {
+	img, err := LoadEbitenImage(name)
+	if err != nil {
+		panic(err)
+	}
+	return img
+}
