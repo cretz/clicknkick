@@ -85,7 +85,6 @@ func (t *team) update(g *Game, myTeam bool) {
 	} else if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		// When mouse is clicked in screen, it's a new point for ball or player
 		if g.ball.selected {
-			// TODO: new point and remove selection
 			g.ball.selected = false
 			_, _, g.ball.nextX, g.ball.nextY = g.ball.ballPendingPoint(g)
 		} else if p, _, _, destX, destY := t.selectedPlayerPendingPoint(g); destX >= 0 {
@@ -116,7 +115,6 @@ func (t *team) draw(screen *ebiten.Image, g *Game, myTeam bool) {
 			g.selectReticleOp.ColorM.Reset()
 			g.selectReticleOp.ColorM.Scale(1.7, 1.7, 0.5, 1)
 			drawSelectReticle(screen, p.x, p.y, 1, &g.selectReticleOp)
-			// g.selectReticle.draw(screen, g, p.x, p.y, true)
 			if sourceX >= 0 {
 				drawLineDot(screen, sourceX, sourceY, destX, destY, &playerPendingLineOp)
 			}
@@ -124,7 +122,6 @@ func (t *team) draw(screen *ebiten.Image, g *Game, myTeam bool) {
 			p := t.players[t.hoveredPlayer]
 			g.selectReticleOp.ColorM.Reset()
 			drawSelectReticle(screen, p.x, p.y, 1, &g.selectReticleOp)
-			// g.selectReticle.draw(screen, g, p.x, p.y, false)
 		}
 	}
 }
@@ -145,6 +142,11 @@ func (t *team) selectedPlayerPendingPoint(g *Game) (p *player, sourceX, sourceY,
 		destX = sourceX + ((destX - sourceX) * off)
 		destY = sourceY + ((destY - sourceY) * off)
 	}
+	// Also constrain by field limits
+	// TODO: unless going to handle corner or OOB ball
+	fieldLeft, fieldTop, fieldRight, fieldBottom := g.field.fieldBounds(g)
+	destX = math.Min(math.Max(destX, fieldLeft), fieldRight)
+	destY = math.Min(math.Max(destY, fieldTop), fieldBottom)
 	return
 }
 

@@ -19,6 +19,9 @@ type ball struct {
 
 	lastX, lastY float64
 	nextX, nextY float64
+
+	off            bool
+	offKickerTeam1 bool
 }
 
 func newBall(equip sprites) (*ball, error) {
@@ -45,20 +48,6 @@ func init() {
 }
 
 func (b *ball) draw(screen *ebiten.Image, g *Game) {
-	w, h := b.Image.Size()
-	b.op.GeoM.Reset()
-	b.op.GeoM.Translate(-float64(w)/2, -float64(h)/2)
-
-	b.frameCount++
-	if b.frameCount < ballRotateFrameCount && b.moving {
-		b.op.GeoM.Rotate(degToRad(90))
-	} else if b.frameCount > ballRotateFrameCount*2 {
-		b.frameCount = 0
-	}
-
-	b.op.GeoM.Concat(g.fieldScale.GeoM)
-	b.op.GeoM.Translate(b.currPos(g))
-	screen.DrawImage(b.Image, &b.op)
 	// Draw last and next lines
 	if b.lastX >= 0 {
 		drawLineDot(screen, b.lastX, b.lastY, b.x, b.y, &ballLastLineOp)
@@ -75,6 +64,19 @@ func (b *ball) draw(screen *ebiten.Image, g *Game) {
 		}
 		drawSelectReticle(screen, b.x, b.y, 0.5, &g.selectReticleOp)
 	}
+	// Draw ball
+	w, h := b.Image.Size()
+	b.op.GeoM.Reset()
+	b.op.GeoM.Translate(-float64(w)/2, -float64(h)/2)
+	b.frameCount++
+	if b.frameCount < ballRotateFrameCount && b.moving {
+		b.op.GeoM.Rotate(degToRad(90))
+	} else if b.frameCount > ballRotateFrameCount*2 {
+		b.frameCount = 0
+	}
+	b.op.GeoM.Concat(g.fieldScale.GeoM)
+	b.op.GeoM.Translate(b.currPos(g))
+	screen.DrawImage(b.Image, &b.op)
 }
 
 func (b *ball) cursorOver() bool {
@@ -107,4 +109,18 @@ func (b *ball) currPos(g *Game) (x, y float64) {
 		return b.x, b.y
 	}
 	return b.x + ((b.nextX - b.x) / 100 * g.runningTurnPercent), b.y + ((b.nextY - b.y) / 100 * g.runningTurnPercent)
+}
+
+func (b *ball) offField(g *Game) (off, left, corner, goal bool) {
+	x, y := b.currPos(g)
+	// Entire ball must be over the side
+	w, h := b.Image.Size()
+	x1, y1, x2, y2 := g.field.fieldBounds(g)
+	left = x+float64(w)/2 < x1
+	if corner = left || x-float64(w)/2 > x2; corner {
+		_, goalTop, goalBottom := g.field.goalLine(g, false)
+		goal = y-float64(h)/2 > goalTop && y+float64(h)/2 < goalBottom
+	}
+	off = corner || y+float64(h)/2 < y1 || y-float64(h)/2 > y2
+	return
 }

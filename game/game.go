@@ -164,15 +164,22 @@ func (g *Game) update(screen *ebiten.Image) error {
 		g.team1.update(g, g.iAmTeam1)
 		g.team2.update(g, !g.iAmTeam1)
 		// If we're moving, then possession can be updated
-		if g.runningTurnPercent > 0 {
-			g.updatePossession()
-			g.ball.moving = true
-			// If there is a possessing and moving player, we need to put the ball at his feet
-			if p := g.ballPossessionPlayer(); p != nil && len(p.nextX) > 0 {
-				p.putBallAtFeet(g)
+		if g.ball.moving = g.runningTurnPercent > 0 && !g.ball.off; g.ball.moving {
+			// If the ball is out of bounds in any way, stop it
+			if g.ball.off, _, _, _ = g.ball.offField(g); g.ball.off {
+				g.ball.offKickerTeam1 = g.ballPossessionKickerTeam1
+				// No more possession
+				g.ballPossessionPlayerIndex, g.ballPossessionKickerIndex = -1, -1
+				// No more ball movement
+				g.ball.x, g.ball.y = g.ball.currPos(g)
+				g.ball.lastX, g.ball.lastY, g.ball.nextX, g.ball.nextY = -1, -1, -1, -1
+			} else {
+				g.updatePossession()
+				// If there is a possessing and moving player, we need to put the ball at his feet
+				if p := g.ballPossessionPlayer(); p != nil && len(p.nextX) > 0 {
+					p.putBallAtFeet(g)
+				}
 			}
-		} else {
-			g.ball.moving = false
 		}
 	}
 	return nil

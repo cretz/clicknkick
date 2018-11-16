@@ -141,3 +141,9 @@ func (f *field) goalLine(g *Game, left bool) (x, top, bottom float64) {
 func (f *field) size(g *Game) (x, y float64) {
 	return f.fieldPos(float64(f.xTiles), float64(f.yTiles), g)
 }
+
+func (f *field) fieldBounds(g *Game) (x1, y1, x2, y2 float64) {
+	x1, y1 = f.fieldPos(1.12, 1.12, g)
+	x2, y2 = f.fieldPos(float64(f.xTiles)-1.12, float64(f.yTiles)-1.12, g)
+	return
+}
